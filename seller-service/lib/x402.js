@@ -1,21 +1,13 @@
+'use strict';
+
 const { ethers } = require('ethers');
 
-// In-memory nonce store to prevent replay attacks.
-// Replace with a persistent store (Redis/DB) in production.
 const usedNonces = new Set();
 
 function build402Payload({ network, amount, payTo, asset, maxTimeoutSeconds = 300 }) {
   return {
     x402Version: 2,
-    accepts: [
-      {
-        network,
-        amount,
-        payTo,
-        asset,
-        maxTimeoutSeconds,
-      },
-    ],
+    accepts: [{ network, amount, payTo, asset, maxTimeoutSeconds }],
   };
 }
 
@@ -55,11 +47,10 @@ async function verifyPayment(headerValue, { payTo, asset, amount, network }) {
     return { valid: false, error: 'Nonce already used (replay attack)' };
   }
 
-  // Verify EIP-3009 signature off-chain
   const chainId = parseInt(network.split(':')[1]);
   const domain = {
-    name: process.env.TOKEN_DOMAIN_NAME || 'USD Coin',
-    version: process.env.TOKEN_DOMAIN_VERSION || '2',
+    name: process.env.TOKEN_DOMAIN_NAME,
+    version: process.env.TOKEN_DOMAIN_VERSION,
     chainId,
     verifyingContract: asset,
   };
@@ -84,20 +75,18 @@ async function verifyPayment(headerValue, { payTo, asset, amount, network }) {
     nonce: authorization.nonce,
   };
 
-  let recoveredAddress;
+  let recovered;
   try {
-    recoveredAddress = ethers.verifyTypedData(domain, types, message, signature);
+    recovered = ethers.verifyTypedData(domain, types, message, signature);
   } catch (err) {
-    return { valid: false, error: `Signature verification failed: ${err.message}` };
+    return { valid: false, error: `EIP-712 verification failed: ${err.message}` };
   }
 
-  if (recoveredAddress.toLowerCase() !== authorization.from.toLowerCase()) {
+  if (recovered.toLowerCase() !== authorization.from.toLowerCase()) {
     return { valid: false, error: 'Signer address mismatch' };
   }
 
-  // Mark nonce as consumed to prevent replays
   usedNonces.add(authorization.nonce);
-
   return { valid: true, payer: authorization.from };
 }
 

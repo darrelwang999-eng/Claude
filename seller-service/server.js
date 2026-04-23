@@ -1,23 +1,27 @@
+'use strict';
+
 require('dotenv').config();
 const express = require('express');
 const { build402Payload, verifyPayment } = require('./lib/x402');
-
-const app = express();
-app.use(express.json());
 
 const {
   PORT = 3000,
   PAY_TO_ADDRESS,
   ASSET_ADDRESS,
-  PAYMENT_AMOUNT = '1000000',   // 1 USDG (6 decimals)
-  NETWORK = 'eip155:196',       // X Layer mainnet
+  PAYMENT_AMOUNT = '1000000',
+  NETWORK = 'eip155:196',
   MAX_TIMEOUT_SECONDS = '300',
+  TOKEN_DOMAIN_NAME,
+  TOKEN_DOMAIN_VERSION,
 } = process.env;
 
-if (!PAY_TO_ADDRESS || !ASSET_ADDRESS) {
-  console.error('ERROR: PAY_TO_ADDRESS and ASSET_ADDRESS must be set in .env');
+if (!PAY_TO_ADDRESS || !ASSET_ADDRESS || !TOKEN_DOMAIN_NAME || !TOKEN_DOMAIN_VERSION) {
+  console.error('Missing required env vars. Run: node setup.js');
   process.exit(1);
 }
+
+const app = express();
+app.use(express.json());
 
 const paymentConfig = {
   network: NETWORK,
@@ -28,20 +32,15 @@ const paymentConfig = {
 };
 
 function send402(res) {
-  const payload = build402Payload(paymentConfig);
-  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64');
+  const encoded = Buffer.from(JSON.stringify(build402Payload(paymentConfig))).toString('base64');
   res.status(402).send(encoded);
 }
 
 async function requirePayment(req, res, next) {
-  const paymentHeader =
-    req.headers['payment-signature'] || req.headers['x-payment'];
+  const header = req.headers['payment-signature'] || req.headers['x-payment'];
+  if (!header) return send402(res);
 
-  if (!paymentHeader) {
-    return send402(res);
-  }
-
-  const result = await verifyPayment(paymentHeader, {
+  const result = await verifyPayment(header, {
     payTo: PAY_TO_ADDRESS,
     asset: ASSET_ADDRESS,
     amount: PAYMENT_AMOUNT,
@@ -49,7 +48,7 @@ async function requirePayment(req, res, next) {
   });
 
   if (!result.valid) {
-    console.warn(`Payment rejected: ${result.error}`);
+    console.warn(`[x402] rejected: ${result.error}`);
     return res.status(402).json({ error: result.error });
   }
 
@@ -61,27 +60,23 @@ async function requirePayment(req, res, next) {
 
 app.get('/api/data', requirePayment, (req, res) => {
   res.json({
-    message: 'Payment verified. Welcome!',
     payer: req.payer,
-    data: {
-      content: 'This is your paid content.',
-      timestamp: new Date().toISOString(),
-    },
+    data: { content: 'Paid content delivered.', timestamp: new Date().toISOString() },
   });
 });
 
 // ── Health check (free) ───────────────────────────────────────────────────────
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', network: NETWORK, asset: ASSET_ADDRESS });
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', network: NETWORK, asset: ASSET_ADDRESS, payTo: PAY_TO_ADDRESS });
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
-  console.log(`Seller service listening on port ${PORT}`);
-  console.log(`  Network : ${NETWORK}`);
-  console.log(`  Pay to  : ${PAY_TO_ADDRESS}`);
-  console.log(`  Asset   : ${ASSET_ADDRESS}`);
-  console.log(`  Amount  : ${PAYMENT_AMOUNT} (minimal units)`);
+  console.log(`[x402] OKX OnchainOS seller service on :${PORT}`);
+  console.log(`  network : ${NETWORK}`);
+  console.log(`  asset   : ${ASSET_ADDRESS}  (${TOKEN_DOMAIN_NAME} v${TOKEN_DOMAIN_VERSION})`);
+  console.log(`  pay to  : ${PAY_TO_ADDRESS}`);
+  console.log(`  amount  : ${PAYMENT_AMOUNT} (minimal units)`);
 });
