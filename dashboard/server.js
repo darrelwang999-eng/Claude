@@ -8,9 +8,10 @@ const path       = require('path');
 const { fetchAllYields } = require('../rebalancer/lib/yields');
 const { decide }         = require('../rebalancer/lib/rebalance');
 
-const PORT     = parseInt(process.env.DASHBOARD_PORT ?? '8080');
-const CAPITAL  = parseFloat(process.env.CAPITAL      ?? '10000');
-const POLL_MS  = parseInt(process.env.POLL_MS        ?? String(60_000));
+const PORT      = parseInt(process.env.DASHBOARD_PORT ?? '8080');
+const CAPITAL   = parseFloat(process.env.CAPITAL      ?? '10000');
+const DEMO_MODE = process.env.DEMO_MODE !== 'false';
+const POLL_MS   = parseInt(process.env.POLL_MS ?? String(DEMO_MODE ? 3_000 : 60_000));
 
 const POOL_META = {
   aave_base:     { label: 'Aave V3 · Base',    chain: 'Base',    gasCost: 0.25  },
@@ -27,6 +28,7 @@ const startTime = Date.now();
 
 const state = {
   ts:             new Date().toISOString(),
+  demoMode:       DEMO_MODE,
   capital:        CAPITAL,
   balance:        CAPITAL,
   pnl:            0,
