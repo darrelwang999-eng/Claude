@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stablecoin Rebalancer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#1c2128;
+  --border:#30363d;--border2:#21262d;
+  --text:#e6edf3;--muted:#8b949e;--muted2:#6e7681;
+  --green:#3fb950;--green-dim:rgba(63,185,80,.15);
+  --red:#f85149;  --red-dim:rgba(248,81,73,.15);
+  --yellow:#e3b341;--yellow-dim:rgba(227,179,65,.15);
+  --blue:#58a6ff; --blue-dim:rgba(88,166,255,.12);
+  --purple:#bc8cff;
+  --radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'SF Mono','Fira Code',ui-monospace,monospace;font-size:13px;min-height:100vh}
+
+/* ── Header ── */
+header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 24px;background:var(--surface);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:10;
+}
+.logo{font-size:15px;font-weight:700;letter-spacing:.5px;color:var(--text)}
+.logo span{color:var(--green)}
+.header-right{display:flex;align-items:center;gap:20px;color:var(--muted);font-size:12px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* ── Layout ── */
+main{padding:20px 24px;display:grid;gap:16px;max-width:1600px;margin:0 auto}
+
+/* ── KPI row ── */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.kpi{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;display:flex;flex-direction:column;gap:5px;
+}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.kpi-value{font-size:24px;font-weight:700;line-height:1.1}
+.kpi-sub{font-size:11px;color:var(--muted)}
+.c-green{color:var(--green)}.c-red{color:var(--red)}.c-blue{color:var(--blue)}.c-yellow{color:var(--yellow)}.c-purple{color:var(--purple)}
+
+/* ── Signal banner ── */
+.signal{
+  border-radius:var(--radius);padding:12px 18px;
+  display:flex;align-items:center;gap:12px;border:1px solid;font-size:13px;
+}
+.signal-hold   {background:var(--blue-dim);  border-color:rgba(88,166,255,.3);  color:var(--blue)}
+.signal-rotate {background:var(--yellow-dim);border-color:rgba(227,179,65,.3);  color:var(--yellow)}
+.signal-icon{font-size:20px;flex-shrink:0}
+.signal-text{flex:1}
+.signal-action{font-weight:700;font-size:14px}
+.signal-reason{color:var(--muted);font-size:12px;margin-top:2px}
+
+/* ── Middle row ── */
+.mid-row{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+
+/* ── Card ── */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:18px;
+}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.card-title{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.card-badge{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600}
+
+/* ── Balance chart ── */
+.chart-wrap{position:relative;height:220px}
+
+/* ── APY bars ── */
+.apy-list{display:flex;flex-direction:column;gap:10px}
+.apy-row{display:grid;grid-template-columns:130px 1fr 52px;align-items:center;gap:8px}
+.apy-name{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.apy-row.active .apy-name{color:var(--text);font-weight:700}
+.bar-track{background:rgba(255,255,255,.05);border-radius:3px;height:18px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;background:rgba(88,166,255,.35);transition:width .6s ease}
+.apy-row.active .bar-fill{background:var(--green)}
+.apy-pct{font-size:12px;font-weight:700;text-align:right;color:var(--muted)}
+.apy-row.active .apy-pct{color:var(--green)}
+
+/* ── Bottom row ── */
+.bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* ── Rotation log ── */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{color:var(--muted);font-weight:500;text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td{padding:9px 10px;border-bottom:1px solid var(--border2);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.arrow{color:var(--muted);margin:0 4px}
+.pool-tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;background:var(--blue-dim);color:var(--blue)}
+.gain{color:var(--green)}.loss{color:var(--red)}
+
+/* ── Stats ── */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat-item{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:12px}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat-val{font-size:18px;font-weight:700}
+
+/* ── Responsive ── */
+@media(max-width:1100px){
+  .kpi-row{grid-template-columns:repeat(3,1fr)}
+  .mid-row,.bottom-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">◈ Stable<span>Rebalancer</span></div>
+  <div class="header-right">
+    <div id="hPool" style="color:var(--text)">—</div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <div class="live-dot" id="dot"></div>
+      <span id="hTs">connecting…</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- KPI -->
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">Portfolio Value</div>
+      <div class="kpi-value" id="kBalance">$—</div>
+      <div class="kpi-sub" id="kCapital">Capital $—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Total PnL</div>
+      <div class="kpi-value" id="kPnl">$—</div>
+      <div class="kpi-sub" id="kPnlPct">—%</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Annualized APY</div>
+      <div class="kpi-value c-green" id="kApy">—%</div>
+      <div class="kpi-sub" id="kApySub">since inception</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Current Pool</div>
+      <div class="kpi-value c-blue" id="kPool">—</div>
+      <div class="kpi-sub" id="kPoolApy">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Total Rotations</div>
+      <div class="kpi-value c-purple" id="kRotations">0</div>
+      <div class="kpi-sub" id="kGas">Gas paid $—</div>
+    </div>
+  </div>
+
+  <!-- Signal -->
+  <div class="signal signal-hold" id="signal">
+    <div class="signal-icon" id="sigIcon">⏸</div>
+    <div class="signal-text">
+      <div class="signal-action" id="sigAction">HOLD</div>
+      <div class="signal-reason" id="sigReason">Initializing…</div>
+    </div>
+  </div>
+
+  <!-- Balance chart + APY bars -->
+  <div class="mid-row">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Portfolio Balance & PnL</div>
+        <div class="card-badge" id="chartBadge" style="background:var(--green-dim);color:var(--green)">+$0.00</div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="balChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Live APY Comparison</div>
+        <div class="card-badge" style="background:var(--blue-dim);color:var(--blue)" id="bestBadge">Best: —</div>
+      </div>
+      <div class="apy-list" id="apyList"></div>
+    </div>
+  </div>
+
+  <!-- Rotation log + stats -->
+  <div class="bottom-row">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Rotation Log</div>
+        <div class="card-badge" id="rotBadge" style="background:var(--yellow-dim);color:var(--yellow)">0 rotations</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th><th>From → To</th><th>APY Δ</th><th>Balance Δ</th><th>Gas</th>
+            </tr>
+          </thead>
+          <tbody id="rotBody">
+            <tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px">No rotations yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Strategy Stats</div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-label">Best Day</div>
+          <div class="stat-val c-green" id="sBestDay">$—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Worst Day</div>
+          <div class="stat-val c-red" id="sWorstDay">$—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Avg Daily Yield</div>
+          <div class="stat-val c-blue" id="sAvgDaily">$—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Days Running</div>
+          <div class="stat-val" id="sDays">—</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Highest APY Seen</div>
+          <div class="stat-val c-green" id="sMaxApy">—%</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Gas / $10k</div>
+          <div class="stat-val c-yellow" id="sGasPct">—%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Chart setup ──────────────────────────────────────────────────────────────
+const ctx = document.getElementById('balChart').getContext('2d');
+const balChart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      {
+        label: 'Balance',
+        data: [],
+        borderColor: '#3fb950',
+        backgroundColor: 'rgba(63,185,80,.08)',
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.3,
+        yAxisID: 'y',
+      },
+      {
+        label: 'PnL',
+        data: [],
+        borderColor: '#58a6ff',
+        backgroundColor: 'transparent',
+        borderWidth: 1.5,
+        borderDash: [4,3],
+        pointRadius: 0,
+        fill: false,
+        tension: 0.3,
+        yAxisID: 'y2',
+      },
+    ],
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#161b22',
+        borderColor: '#30363d',
+        borderWidth: 1,
+        titleColor: '#8b949e',
+        bodyColor: '#e6edf3',
+        callbacks: {
+          label: ctx => ctx.dataset.label + ': $' + ctx.raw.toFixed(2),
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(48,54,61,.5)' },
+        ticks: { color: '#6e7681', maxTicksLimit: 8,
+          callback(_, i, arr) {
+            const lbl = this.getLabelForValue(this.chart.data.labels[i] ?? '');
+            return lbl ? lbl.slice(5, 10) : '';
+          }
+        },
+      },
+      y: {
+        position: 'left',
+        grid: { color: 'rgba(48,54,61,.5)' },
+        ticks: { color: '#6e7681', callback: v => '$' + v.toFixed(0) },
+      },
+      y2: {
+        position: 'right',
+        grid: { display: false },
+        ticks: { color: '#58a6ff', callback: v => '+$' + v.toFixed(1) },
+      },
+    },
+  },
+});
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmt  = n  => '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtP = n  => (n >= 0 ? '+' : '') + n.toFixed(3) + '%';
+const fmtA = n  => (n * 100).toFixed(2) + '%';
+const ts2h = ts => ts.slice(11, 16);
+const ts2d = ts => ts.slice(5, 10);
+
+let allState = null;
+
+// ── State update ─────────────────────────────────────────────────────────────
+function applyState(s) {
+  allState = s;
+
+  // Header
+  $('hTs').textContent  = 'Updated ' + ts2h(s.ts);
+  $('hPool').textContent = (s.poolMeta?.[s.currentPool]?.label ?? s.currentPool ?? '—');
+
+  // KPI
+  $('kBalance').textContent = fmt(s.balance);
+  $('kCapital').textContent = 'Capital ' + fmt(s.capital);
+
+  const pnlEl = $('kPnl');
+  pnlEl.textContent = (s.pnl >= 0 ? '+' : '-') + fmt(s.pnl);
+  pnlEl.className   = 'kpi-value ' + (s.pnl >= 0 ? 'c-green' : 'c-red');
+  $('kPnlPct').textContent = fmtP(s.pnlPct);
+
+  $('kApy').textContent    = fmtA(s.annualizedApy);
+  $('kPool').textContent   = s.poolMeta?.[s.currentPool]?.label ?? s.currentPool ?? '—';
+  $('kPoolApy').textContent = 'Live APY ' + fmtA(s.currentApy);
+  $('kRotations').textContent = s.rotations.length;
+
+  const totalGas = s.rotations.reduce((a, r) => a + (r.gas ?? 0), 0);
+  $('kGas').textContent = 'Gas paid $' + totalGas.toFixed(3);
+
+  // Signal
+  const sig = s.signal ?? {};
+  const sigEl = $('signal');
+  sigEl.className = 'signal ' + (sig.action === 'hold' ? 'signal-hold' : 'signal-rotate');
+  $('sigIcon').textContent  = sig.action === 'hold' ? '⏸' : '⚡';
+  $('sigAction').textContent = (sig.action ?? 'hold').toUpperCase().replace('_', ' ');
+  $('sigReason').textContent = sig.reason ?? '—';
+
+  // Badge
+  $('chartBadge').textContent = (s.pnl >= 0 ? '+' : '') + fmt(s.pnl);
+  $('chartBadge').style.color = s.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+  $('chartBadge').style.background = s.pnl >= 0 ? 'var(--green-dim)' : 'var(--red-dim)';
+
+  // Balance chart
+  const hist = s.balanceHistory ?? [];
+  balChart.data.labels              = hist.map(h => h.ts);
+  balChart.data.datasets[0].data   = hist.map(h => h.balance);
+  balChart.data.datasets[1].data   = hist.map(h => +(h.balance - s.capital).toFixed(4));
+  balChart.update('none');
+
+  // APY bars
+  const yields = s.yields ?? {};
+  const allApys = Object.entries(yields).sort(([, a], [, b]) => b - a);
+  const maxApy  = allApys[0]?.[1] ?? 0.1;
+  const bestId  = allApys[0]?.[0];
+  $('bestBadge').textContent = 'Best: ' + fmtA(maxApy);
+
+  const apyList = $('apyList');
+  apyList.innerHTML = '';
+
+  // Show all pools (use poolMeta as source of truth if no live yield)
+  const poolKeys = Object.keys(s.poolMeta ?? {});
+  const displayPools = allApys.length > 0
+    ? allApys
+    : poolKeys.map(k => [k, 0]);
+
+  displayPools.forEach(([id, apy]) => {
+    const isActive = id === s.currentPool;
+    const label    = s.poolMeta?.[id]?.label ?? id;
+    const barPct   = maxApy > 0 ? Math.min(100, (apy / maxApy) * 100) : 0;
+
+    const row = document.createElement('div');
+    row.className = 'apy-row' + (isActive ? ' active' : '');
+    row.innerHTML = `
+      <div class="apy-name" title="${label}">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${barPct.toFixed(1)}%"></div></div>
+      <div class="apy-pct">${fmtA(apy)}</div>
+    `;
+    apyList.appendChild(row);
+  });
+
+  // Rotation log
+  const rots = s.rotations ?? [];
+  $('rotBadge').textContent = rots.length + ' rotation' + (rots.length !== 1 ? 's' : '');
+  const tbody = $('rotBody');
+  if (rots.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px">No rotations yet</td></tr>';
+  } else {
+    tbody.innerHTML = rots.slice(0, 20).map(r => {
+      const fromLabel = s.poolMeta?.[r.from]?.label ?? r.from ?? '—';
+      const toLabel   = s.poolMeta?.[r.to]?.label   ?? r.to   ?? '—';
+      const apyDelta  = ((r.apyAfter ?? 0) - (r.apyBefore ?? 0)) * 100;
+      const balDelta  = (r.balanceAfter ?? 0) - (r.balanceBefore ?? 0);
+      return `
+        <tr>
+          <td style="color:var(--muted)">${ts2d(r.ts)} ${ts2h(r.ts)}</td>
+          <td>
+            <span class="pool-tag">${fromLabel}</span>
+            <span class="arrow">→</span>
+            <span class="pool-tag" style="background:var(--green-dim);color:var(--green)">${toLabel}</span>
+          </td>
+          <td class="${apyDelta >= 0 ? 'gain' : 'loss'}">${apyDelta >= 0 ? '+' : ''}${apyDelta.toFixed(2)}%</td>
+          <td class="${balDelta >= 0 ? 'gain' : 'loss'}">${balDelta >= 0 ? '+' : ''}$${Math.abs(balDelta).toFixed(3)}</td>
+          <td style="color:var(--muted)">$${(r.gas ?? 0).toFixed(3)}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  // Stats
+  const balHist = (s.balanceHistory ?? []).map(h => h.balance);
+  const dailyChanges = balHist.slice(1).map((b, i) => b - balHist[i]);
+  const best  = dailyChanges.length ? Math.max(...dailyChanges) : 0;
+  const worst = dailyChanges.length ? Math.min(...dailyChanges) : 0;
+  const avg   = dailyChanges.length ? dailyChanges.reduce((a, b) => a + b, 0) / dailyChanges.length : 0;
+
+  $('sBestDay').textContent  = '+$' + best.toFixed(3);
+  $('sWorstDay').textContent = (worst >= 0 ? '+' : '-') + '$' + Math.abs(worst).toFixed(3);
+  $('sAvgDaily').textContent = '$' + avg.toFixed(3);
+  $('sDays').textContent     = balHist.length + ' ticks';
+  $('sMaxApy').textContent   = fmtA(maxApy);
+
+  const gasPct = totalGas / s.capital * 100;
+  $('sGasPct').textContent   = gasPct.toFixed(3) + '%';
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function connect() {
+  const ws = new WebSocket(`ws://${location.host}`);
+
+  ws.onopen    = () => { $('dot').style.background = 'var(--green)'; };
+  ws.onclose   = () => { $('dot').style.background = 'var(--red)'; setTimeout(connect, 3000); };
+  ws.onerror   = () => ws.close();
+  ws.onmessage = e => { try { applyState(JSON.parse(e.data)); } catch {} };
+}
+
+connect();
+</script>
+</body>
+</html>
