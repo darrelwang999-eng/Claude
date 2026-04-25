@@ -93,6 +93,9 @@ function seedHistory() {
 
 seedHistory();
 
+// Yield cache — keeps last known values so a single failed fetch doesn't drop APY to 0
+const yieldCache = {};
+
 // ── Express + WebSocket ───────────────────────────────────────────────────────
 
 const app    = express();
@@ -133,13 +136,21 @@ function simulatedYields() {
 // ── Polling tick ──────────────────────────────────────────────────────────────
 
 async function tick() {
-  let yields;
+  let fresh;
   try {
-    yields = await fetchAllYields();
-    if (Object.keys(yields).length === 0) throw new Error('empty');
+    fresh = await fetchAllYields();
   } catch {
-    yields = simulatedYields();
+    fresh = {};
   }
+
+  // Merge fresh data into cache; fall back to simulation for any missing pools
+  const sim = simulatedYields();
+  for (const k of Object.keys(sim)) {
+    if (fresh[k] != null) yieldCache[k] = fresh[k];       // real data wins
+    else if (yieldCache[k] == null) yieldCache[k] = sim[k]; // first-run seed
+    // else: keep previous cached value — no drop to 0%
+  }
+  const yields = { ...yieldCache };
 
   const now     = new Date().toISOString();
   const signal  = decide(yields, state.currentPool);
