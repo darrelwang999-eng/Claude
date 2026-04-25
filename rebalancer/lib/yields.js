@@ -9,9 +9,17 @@ const RAY = 10n ** 27n;
 
 // ── RPC providers (lazy) ─────────────────────────────────────────────────────
 
+const CHAIN_IDS = { ethereum: 1, base: 8453 };
 const _providers = {};
 function provider(chain) {
-  if (!_providers[chain]) _providers[chain] = new ethers.JsonRpcProvider(RPC[chain]);
+  if (!_providers[chain]) {
+    const chainId = CHAIN_IDS[chain] ?? 1;
+    _providers[chain] = new ethers.JsonRpcProvider(
+      RPC[chain],
+      chainId,
+      { staticNetwork: ethers.Network.from(chainId) }
+    );
+  }
   return _providers[chain];
 }
 
