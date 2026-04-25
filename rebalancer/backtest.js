@@ -5,18 +5,18 @@ const fetch = require('node-fetch');
 
 const CAPITAL       = parseFloat(process.argv[2] ?? '10000');
 const THRESHOLD     = 0.005;   // 0.5% rebalance trigger
-const GAS_ETH_USD   = 15;      // avg gas per rotation on Ethereum
-const GAS_BASE_USD  = 0.25;    // avg gas per rotation on Base
-const SUSDE_MIN_APY = 0.03;    // exit sUSDe below 3%
-const EXIT_WINDOW   = 2;       // days before forced exit from low-APY sUSDe
+const SUSDE_MIN_APY = 0.03;
+const EXIT_WINDOW   = 2;
 const DAYS          = 30;
 
+// Low-gas chains only: Base (~$0.25), Solana (~$0.001), X Layer (~$0.05)
 const POOL_FILTERS = [
-  { key: 'aave_eth',      project: 'aave-v3',     chain: 'Ethereum', symbol: 'USDC',  gasCost: GAS_ETH_USD  },
-  { key: 'aave_base',     project: 'aave-v3',     chain: 'Base',     symbol: 'USDC',  gasCost: GAS_BASE_USD },
-  { key: 'compound_eth',  project: 'compound-v3', chain: 'Ethereum', symbol: 'USDC',  gasCost: GAS_ETH_USD  },
-  { key: 'compound_base', project: 'compound-v3', chain: 'Base',     symbol: 'USDC',  gasCost: GAS_BASE_USD },
-  { key: 'susde',         project: 'ethena',      chain: 'Ethereum', symbol: 'sUSDe', gasCost: GAS_ETH_USD  },
+  { key: 'aave_base',     project: 'aave-v3',    chain: 'Base',   symbol: 'USDC',  gasCost: 0.25  },
+  { key: 'compound_base', project: 'compound-v3', chain: 'Base',   symbol: 'USDC',  gasCost: 0.25  },
+  { key: 'kamino_sol',    project: 'kamino',      chain: 'Solana', symbol: 'USDC',  gasCost: 0.001 },
+  { key: 'marginfi_sol',  project: 'marginfi',    chain: 'Solana', symbol: 'USDC',  gasCost: 0.001 },
+  { key: 'save_sol',      project: 'save',        chain: 'Solana', symbol: 'USDC',  gasCost: 0.001 },
+  { key: 'xlayer_aave',   project: 'aave-v3',     chain: 'XLayer', symbol: 'USDC',  gasCost: 0.05  },
 ];
 
 // ── DeFiLlama helpers ─────────────────────────────────────────────────────────
@@ -65,18 +65,22 @@ function buildFallbackHistories() {
   }
 
   return {
-    aave_eth:      series(0.058, 0.003, 1001),  // ~5.8% avg, low vol
-    aave_base:     series(0.071, 0.005, 1002),  // ~7.1% avg, moderate vol
-    compound_eth:  series(0.052, 0.003, 1003),  // ~5.2% avg
-    compound_base: series(0.068, 0.005, 1004),  // ~6.8% avg
-    susde:         series(0.112, 0.025, 1005),  // ~11.2% avg, high vol (funding rates)
+    // Base (~$0.25 gas)
+    aave_base:     series(0.071, 0.005, 1002),  // ~7.1%
+    compound_base: series(0.068, 0.005, 1004),  // ~6.8%
+    // Solana (~$0.001 gas) — higher yields from DeFi demand premium
+    kamino_sol:    series(0.089, 0.009, 2001),  // ~8.9%
+    marginfi_sol:  series(0.076, 0.007, 2002),  // ~7.6%
+    save_sol:      series(0.072, 0.006, 2003),  // ~7.2% (formerly Solend)
+    // X Layer (~$0.05 gas) — OKX native chain, USDG incentive APY
+    xlayer_aave:   series(0.082, 0.010, 3001),  // ~8.2%
   };
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log('=== Stablecoin Rebalancer Backtest ===');
+  console.log('=== Stablecoin Rebalancer Backtest [Low-Gas: Base / Solana / X Layer] ===');
   console.log(`Capital $${CAPITAL.toLocaleString()}  |  ${DAYS} days  |  Threshold ${THRESHOLD * 100}%\n`);
 
   // Step 1: resolve pool IDs (with offline fallback)
@@ -170,7 +174,7 @@ async function main() {
         if (susdeApy > (lendingBest?.[1] ?? 0)) target = 'susde';
       } else if (currentPool === 'susde') {
         susdeWeakDays++;
-        target = susdeWeakDays >= EXIT_WINDOW ? (lendingBest?.[0] ?? 'aave_eth') : 'susde';
+        target = susdeWeakDays >= EXIT_WINDOW ? (lendingBest?.[0] ?? 'aave_base') : 'susde';
         if (susdeWeakDays >= EXIT_WINDOW) susdeWeakDays = 0;
       }
     }
