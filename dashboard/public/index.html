@@ -198,6 +198,103 @@ header{
   .hero{grid-template-columns:repeat(3,1fr)}
   .grid2,.grid3{grid-template-columns:1fr}
 }
+
+/* ── Subscribe CTA ──────────────────────────────────────────────────────── */
+.sub-section{margin-top:20px}
+.sub-card{
+  background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(59,130,246,.04));
+  border:1px solid rgba(16,185,129,.22);border-radius:var(--r);
+  padding:28px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px;
+}
+.sub-info{flex:1}
+.sub-title{font-size:20px;font-weight:800;margin-bottom:8px}
+.sub-title span{color:var(--green)}
+.sub-desc{font-size:13px;color:var(--t2);line-height:1.65;max-width:560px}
+.sub-features{display:flex;gap:18px;margin-top:14px;flex-wrap:wrap}
+.sub-feat{font-size:12px;color:var(--t2);display:flex;align-items:center;gap:5px}
+.sub-feat::before{content:'✓';color:var(--green);font-weight:800}
+.sub-cta{display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex-shrink:0}
+.sub-price{text-align:right}
+.sub-amount{font-size:32px;font-weight:800;color:var(--green);line-height:1}
+.sub-currency{font-size:12px;color:var(--t2);margin-top:2px}
+.btn-subscribe{
+  background:linear-gradient(135deg,#10b981,#059669);
+  color:#fff;border:none;border-radius:10px;padding:14px 32px;
+  font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.2px;
+  transition:opacity .2s,transform .1s;white-space:nowrap;
+}
+.btn-subscribe:hover{opacity:.9;transform:translateY(-1px)}
+.sub-note{font-size:11px;color:var(--t3);text-align:right}
+.sub-count{color:var(--green);font-weight:600}
+@media(max-width:700px){.sub-card{flex-direction:column;align-items:flex-start}.sub-cta{align-items:flex-start}}
+
+/* ── Modal ──────────────────────────────────────────────────────────────── */
+.modal-bg{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);
+  backdrop-filter:blur(7px);z-index:1000;align-items:center;justify-content:center;
+}
+.modal-bg.open{display:flex}
+.modal{
+  background:var(--s1);border:1px solid rgba(255,255,255,.09);border-radius:18px;
+  width:min(540px,95vw);padding:28px;position:relative;
+  box-shadow:0 24px 80px rgba(0,0,0,.65);animation:modalIn .22s ease;
+}
+@keyframes modalIn{from{transform:scale(.96) translateY(10px);opacity:0}to{transform:none;opacity:1}}
+.modal-close{
+  position:absolute;top:14px;right:14px;background:var(--b1);border:none;color:var(--t2);
+  width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+}
+.modal-close:hover{background:var(--s3);color:var(--text)}
+.step-dots{display:flex;gap:7px;justify-content:center;margin-bottom:22px}
+.step-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.1);transition:background .3s}
+.step-dot.done{background:rgba(16,185,129,.4)}
+.step-dot.active{background:var(--green)}
+.modal-step{display:none}
+.modal-step.active{display:block}
+.step-tag{font-size:11px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px}
+.step-title{font-size:19px;font-weight:800;margin-bottom:4px}
+.step-sub{font-size:13px;color:var(--t2);margin-bottom:20px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--b1)}
+.info-row:last-child{border-bottom:none}
+.info-key{font-size:12px;color:var(--t3)}
+.info-val{font-size:12.5px;font-weight:600;font-family:var(--fm);max-width:320px;text-align:right;word-break:break-all}
+.cmd-box{background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:12px 14px;margin:16px 0;position:relative}
+.cmd-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);margin-bottom:6px}
+.cmd-txt{font-family:var(--fm);font-size:11.5px;color:var(--green2);word-break:break-all;line-height:1.6;padding-right:52px}
+.cmd-copy{
+  position:absolute;top:8px;right:8px;background:var(--b1);border:1px solid var(--b1);
+  color:var(--t2);padding:3px 9px;border-radius:4px;font-size:10px;cursor:pointer;
+}
+.cmd-copy:hover{background:var(--s3);color:var(--text)}
+.modal-lbl{font-size:12px;color:var(--t2);margin-bottom:4px}
+.modal-input{
+  width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:8px;
+  color:var(--text);font-family:var(--fm);font-size:12px;padding:10px 12px;resize:none;
+  outline:none;transition:border-color .2s;
+}
+.modal-input:focus{border-color:rgba(16,185,129,.4)}
+.modal-input::placeholder{color:var(--t3)}
+.modal-err{font-size:12px;color:var(--red);margin-top:6px;display:none}
+.btn-primary{
+  width:100%;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;
+  border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;
+  margin-top:14px;transition:opacity .2s;
+}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.45;cursor:default}
+.success-icon{font-size:52px;text-align:center;margin:4px 0 18px;animation:popIn .4s cubic-bezier(.175,.885,.32,1.275)}
+@keyframes popIn{from{transform:scale(0);opacity:0}to{transform:none;opacity:1}}
+.signal-reveal{
+  background:linear-gradient(135deg,rgba(16,185,129,.1),rgba(59,130,246,.05));
+  border:1px solid rgba(16,185,129,.2);border-radius:11px;padding:16px 18px;margin:14px 0;
+}
+.reveal-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--green);margin-bottom:10px}
+.reveal-action{font-size:24px;font-weight:800;margin-bottom:3px}
+.reveal-detail{font-size:13px;color:var(--t2);margin-bottom:2px}
+.reveal-apy{font-size:17px;font-weight:700;color:var(--green);margin-top:4px}
+.wallet-box{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:12px;font-size:12px;color:var(--t2);margin-top:10px;line-height:1.6}
+.wallet-box strong{color:var(--text)}
 </style>
 </head>
 <body>
@@ -346,10 +443,94 @@ header{
   </div>
 
 </div>
+
+  <!-- Subscribe CTA -->
+  <div class="sub-section">
+    <div class="sub-card">
+      <div class="sub-info">
+        <div class="sub-title">Subscribe to <span>YieldFlow Signals</span></div>
+        <div class="sub-desc">Get real-time rebalancing signals pushed directly to your agent wallet. Follow the strategy automatically and capture the same 7%+ APY — every rotation, every opportunity, delivered instantly.</div>
+        <div class="sub-features">
+          <div class="sub-feat">Instant signal delivery</div>
+          <div class="sub-feat">Agent wallet push notifications</div>
+          <div class="sub-feat">Auto-rebalance execution</div>
+          <div class="sub-feat">Powered by OKX OnchainOS x402</div>
+        </div>
+      </div>
+      <div class="sub-cta">
+        <div class="sub-price">
+          <div class="sub-amount">0.10</div>
+          <div class="sub-currency">USDG · per signal</div>
+        </div>
+        <button class="btn-subscribe" id="btnSubscribe">⚡ Subscribe Now</button>
+        <div class="sub-note"><span class="sub-count" id="subCount">0 subscribers</span> · X Layer · USDG</div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /wrap -->
 
 <!-- Toast container -->
 <div id="toast"></div>
+
+<!-- Payment Modal -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <button class="modal-close" id="modalClose">✕</button>
+    <div class="step-dots">
+      <div class="step-dot active" id="sdot1"></div>
+      <div class="step-dot" id="sdot2"></div>
+      <div class="step-dot" id="sdot3"></div>
+    </div>
+
+    <!-- Step 1: payment details + onchainos command -->
+    <div class="modal-step active" id="mstep1">
+      <div class="step-tag">Step 1 of 2</div>
+      <div class="step-title">Payment Details</div>
+      <div class="step-sub">0.1 USDG on X Layer · OKX OnchainOS x402</div>
+      <div id="mPayInfo">
+        <div style="color:var(--t3);font-size:13px;padding:16px 0">Loading payment info…</div>
+      </div>
+      <div class="cmd-box" id="mCmdBox" style="display:none">
+        <div class="cmd-lbl">Run in your terminal (OKX OnchainOS CLI)</div>
+        <div class="cmd-txt" id="mCmdTxt"></div>
+        <button class="cmd-copy" id="mCopyBtn">Copy</button>
+      </div>
+      <button class="btn-primary" id="btnToStep2">Continue — Paste Token →</button>
+    </div>
+
+    <!-- Step 2: paste signed payment token -->
+    <div class="modal-step" id="mstep2">
+      <div class="step-tag">Step 2 of 2</div>
+      <div class="step-title">Paste Payment Token</div>
+      <div class="step-sub">Paste the signed token output from your onchainos command</div>
+      <div class="modal-lbl">Payment signature / token:</div>
+      <textarea class="modal-input" id="mToken" rows="4" placeholder="Paste onchainos payment output here…"></textarea>
+      <div class="modal-err" id="mErr"></div>
+      <button class="btn-primary" id="btnVerify">Verify &amp; Subscribe</button>
+    </div>
+
+    <!-- Step 3: success -->
+    <div class="modal-step" id="mstep3">
+      <div class="success-icon">🎉</div>
+      <div style="text-align:center;margin-bottom:4px">
+        <div class="step-title">You're Subscribed!</div>
+        <div class="step-sub" style="margin-bottom:0">Signal delivered · Wallet registered for push notifications</div>
+      </div>
+      <div class="signal-reveal" id="mReveal">
+        <div class="reveal-lbl">Current Signal</div>
+        <div class="reveal-action" id="mRevAction">—</div>
+        <div class="reveal-detail" id="mRevPool">—</div>
+        <div class="reveal-apy" id="mRevApy">—</div>
+      </div>
+      <div class="wallet-box" id="mWalletBox">
+        <strong>Wallet registered:</strong> <span id="mRevWallet">—</span><br>
+        Future rebalancing signals will be pushed automatically to your agent wallet.
+      </div>
+      <button class="btn-primary" id="btnDone">Done ✓</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ── Chart ───────────────────────────────────────────────────────────────────
@@ -572,6 +753,12 @@ function applyState(s){
     prevRotLen=rots.length;
   }
 
+  // Subscriber count on CTA
+  if(typeof s.subscribers==='number'){
+    const cnt=s.subscribers;
+    $('subCount').textContent=cnt+' subscriber'+(cnt!==1?'s':'');
+  }
+
   // Stats
   const bh=(s.balanceHistory||[]).map(h=>h.balance);
   const deltas=bh.slice(1).map((b,i)=>b-bh[i]);
@@ -594,6 +781,125 @@ function applyState(s){
     showToast('Portfolio Rotated',`${fromL} → ${toL}  ·  APY +${apyD.toFixed(2)}%  ·  Gas $${(r.gas||0).toFixed(3)}`);
   }
 }
+
+// ── Subscribe / Payment Modal ─────────────────────────────────────────────────
+let _signalInfo = null;
+let _currentStep = 1;
+
+function setStep(n) {
+  _currentStep = n;
+  [1,2,3].forEach(i => {
+    $('mstep'+i).classList.toggle('active', i===n);
+    const dot = $('sdot'+i);
+    dot.classList.toggle('active', i===n);
+    dot.classList.toggle('done', i<n);
+  });
+}
+
+async function openSubscribeModal() {
+  setStep(1);
+  $('mToken').value = '';
+  $('mErr').style.display = 'none';
+  $('btnVerify').disabled = false;
+  $('btnVerify').textContent = 'Verify & Subscribe';
+  $('modalBg').classList.add('open');
+
+  try {
+    const r = await fetch('/api/signal-info');
+    _signalInfo = await r.json();
+    $('mPayInfo').innerHTML = `
+      <div class="info-row">
+        <span class="info-key">Amount</span>
+        <span class="info-val c-green">${_signalInfo.amountHuman} ${_signalInfo.currency}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">Network</span>
+        <span class="info-val">${_signalInfo.network}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">Pay To</span>
+        <span class="info-val">${_signalInfo.payTo}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">Asset (USDG)</span>
+        <span class="info-val">${_signalInfo.asset}</span>
+      </div>`;
+    if (_signalInfo.payTo && _signalInfo.payTo !== '(run seller setup first)') {
+      const cmd = `onchainos payment x402-pay --network ${_signalInfo.network} --amount ${_signalInfo.amount} --pay-to ${_signalInfo.payTo} --asset ${_signalInfo.asset} --max-timeout-seconds 300`;
+      $('mCmdTxt').textContent = cmd;
+      $('mCmdBox').style.display = 'block';
+      $('mCopyBtn').onclick = () => {
+        navigator.clipboard.writeText(cmd).then(() => {
+          $('mCopyBtn').textContent = 'Copied!';
+          setTimeout(() => { $('mCopyBtn').textContent = 'Copy'; }, 1600);
+        });
+      };
+    } else {
+      $('mCmdBox').style.display = 'none';
+    }
+  } catch(e) {
+    $('mPayInfo').innerHTML = '<div style="color:var(--red);font-size:13px;padding:12px 0">Failed to load payment info. Make sure the server is running.</div>';
+  }
+}
+
+function closeModal() {
+  $('modalBg').classList.remove('open');
+}
+
+async function verifyAndSubscribe() {
+  const token = $('mToken').value.trim();
+  const errEl = $('mErr');
+  const btn   = $('btnVerify');
+
+  if (!token) {
+    errEl.textContent = 'Please paste your payment token.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Verifying…';
+  errEl.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/signal', {
+      headers: { 'x-payment': token }
+    });
+
+    if (res.status === 402) {
+      const body = await res.json().catch(() => ({ error: 'Payment rejected' }));
+      errEl.textContent = 'Payment rejected: ' + (body.error || 'Invalid token');
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Verify & Subscribe';
+      return;
+    }
+
+    if (!res.ok) throw new Error('Server error ' + res.status);
+
+    const data = await res.json();
+    const sig  = data.signal || {};
+    $('mRevAction').textContent = (sig.action || 'hold').toUpperCase().replace(/_/g,' ');
+    $('mRevPool').textContent   = 'Active pool: ' + (data.currentPool || '—');
+    $('mRevApy').textContent    = ((data.currentApy || 0)*100).toFixed(2) + '% APY';
+    $('mRevWallet').textContent = data.subscriber || '—';
+
+    setStep(3);
+    showToast('Subscribed via OKX!', 'Signal delivered · Wallet registered for push notifications');
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Verify & Subscribe';
+  }
+}
+
+$('btnSubscribe').addEventListener('click', openSubscribeModal);
+$('modalClose').addEventListener('click', closeModal);
+$('btnDone').addEventListener('click', closeModal);
+$('btnToStep2').addEventListener('click', () => setStep(2));
+$('btnVerify').addEventListener('click', verifyAndSubscribe);
+$('modalBg').addEventListener('click', e => { if(e.target === $('modalBg')) closeModal(); });
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 function connect(){

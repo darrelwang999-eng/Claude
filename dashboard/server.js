@@ -5,13 +5,20 @@ const express    = require('express');
 const http       = require('http');
 const { WebSocketServer } = require('ws');
 const path       = require('path');
-const { fetchAllYields } = require('../rebalancer/lib/yields');
-const { decide }         = require('../rebalancer/lib/rebalance');
+const { fetchAllYields }              = require('../rebalancer/lib/yields');
+const { decide }                      = require('../rebalancer/lib/rebalance');
+const { build402Payload, verifyPayment } = require('../seller-service/lib/x402');
 
 const PORT      = parseInt(process.env.DASHBOARD_PORT ?? '8080');
 const CAPITAL   = parseFloat(process.env.CAPITAL      ?? '10000');
 const DEMO_MODE = process.env.DEMO_MODE !== 'false';
 const POLL_MS   = parseInt(process.env.POLL_MS ?? String(DEMO_MODE ? 3_000 : 60_000));
+
+// x402 signal payment config
+const SIGNAL_NETWORK  = process.env.NETWORK       ?? 'eip155:196';
+const SIGNAL_ASSET    = process.env.ASSET_ADDRESS  ?? '0x4ae46a509f6b1d9056937ba4500cb143933d2dc8';
+const SIGNAL_PAY_TO   = process.env.PAY_TO_ADDRESS ?? '';
+const SIGNAL_AMOUNT   = '100000'; // 0.1 USDG (6 decimals)
 
 const POOL_META = {
   aave_base:     { label: 'Aave V3 · Base',    chain: 'Base',    gasCost: 0.25  },
@@ -96,20 +103,104 @@ seedHistory();
 // Yield cache — keeps last known values so a single failed fetch doesn't drop APY to 0
 const yieldCache = {};
 
+// Subscriber registry  { address → { registeredAt, signalsReceived, lastSignal } }
+const subscribers = new Map();
+
+function pushSignalToSubscribers() {
+  if (subscribers.size === 0) return;
+  const payload = {
+    action:      state.signal.action,
+    reason:      state.signal.reason,
+    currentPool: state.currentPool,
+    currentApy:  state.currentApy,
+    yields:      state.yields,
+    ts:          state.ts,
+  };
+  for (const [addr, sub] of subscribers) {
+    sub.signalsReceived++;
+    sub.lastSignal = payload;
+    console.log(`[signal→wallet] ${addr.slice(0,8)}…  ${payload.action.toUpperCase()} @ ${(payload.currentApy*100).toFixed(2)}%`);
+    // Production: call buyer webhook / onchainos wallet notification here
+  }
+}
+
 // ── Express + WebSocket ───────────────────────────────────────────────────────
 
 const app    = express();
+app.use(express.json());
 const server = http.createServer(app);
 const wss    = new WebSocketServer({ server });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
 wss.on('connection', ws => {
-  ws.send(JSON.stringify(state));
+  ws.send(JSON.stringify({ ...state, subscribers: subscribers.size }));
+});
+
+// ── Signal info (free) ────────────────────────────────────────────────────────
+app.get('/api/signal-info', (_req, res) => {
+  res.json({
+    amount:       SIGNAL_AMOUNT,
+    amountHuman:  '0.10',
+    currency:     'USDG',
+    network:      SIGNAL_NETWORK,
+    payTo:        SIGNAL_PAY_TO || '(run seller setup first)',
+    asset:        SIGNAL_ASSET,
+    subscribers:  subscribers.size,
+  });
+});
+
+// ── Paid signal endpoint (x402, 0.1 USDG) ────────────────────────────────────
+app.get('/api/signal', async (req, res) => {
+  const header = req.headers['payment-signature'] || req.headers['x-payment'];
+
+  if (!header) {
+    if (!SIGNAL_PAY_TO) return res.status(503).json({ error: 'PAY_TO_ADDRESS not configured' });
+    const payload = build402Payload({
+      network:           SIGNAL_NETWORK,
+      amount:            SIGNAL_AMOUNT,
+      payTo:             SIGNAL_PAY_TO,
+      asset:             SIGNAL_ASSET,
+      maxTimeoutSeconds: 300,
+    });
+    return res.status(402).send(Buffer.from(JSON.stringify(payload)).toString('base64'));
+  }
+
+  const result = await verifyPayment(header, {
+    payTo:   SIGNAL_PAY_TO,
+    asset:   SIGNAL_ASSET,
+    amount:  SIGNAL_AMOUNT,
+    network: SIGNAL_NETWORK,
+  });
+
+  if (!result.valid) {
+    console.warn(`[signal] payment rejected: ${result.error}`);
+    return res.status(402).json({ error: result.error });
+  }
+
+  // Register subscriber
+  if (!subscribers.has(result.payer)) {
+    subscribers.set(result.payer, { registeredAt: new Date().toISOString(), signalsReceived: 0, lastSignal: null });
+    console.log(`[signal] new subscriber: ${result.payer}`);
+    broadcast({ type: 'subscriber_joined', address: result.payer, total: subscribers.size });
+  }
+  const sub = subscribers.get(result.payer);
+  sub.signalsReceived++;
+  sub.lastSignal = state.signal;
+
+  res.json({
+    signal:      state.signal,
+    currentPool: state.currentPool,
+    currentApy:  state.currentApy,
+    yields:      state.yields,
+    ts:          state.ts,
+    subscriber:  result.payer,
+    message:     `Signal delivered. Wallet ${result.payer} registered for push notifications.`,
+  });
 });
 
 function broadcast() {
-  const msg = JSON.stringify(state);
+  const msg = JSON.stringify({ ...state, subscribers: subscribers.size });
   for (const ws of wss.clients) {
     if (ws.readyState === 1) ws.send(msg);
   }
@@ -199,6 +290,7 @@ async function tick() {
   state.signal     = signal;
 
   broadcast();
+  pushSignalToSubscribers();
   console.log(`[${now.slice(11, 19)}] pool=${state.currentPool} apy=${(currentApy * 100).toFixed(2)}% bal=$${state.balance.toFixed(2)} pnl=+$${state.pnl.toFixed(2)}`);
 }
 
