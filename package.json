@@ -1,0 +1,8 @@
+{
+  "name": "yieldflow",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node dashboard/server.js",
+    "postinstall": "npm install --prefix rebalancer && npm install --prefix seller-service && npm install --prefix dashboard"
+  }
+}

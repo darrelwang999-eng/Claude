@@ -9,7 +9,7 @@ const { fetchAllYields }              = require('../rebalancer/lib/yields');
 const { decide }                      = require('../rebalancer/lib/rebalance');
 const { build402Payload, verifyPayment } = require('../seller-service/lib/x402');
 
-const PORT      = parseInt(process.env.DASHBOARD_PORT ?? '8080');
+const PORT      = parseInt(process.env.PORT ?? process.env.DASHBOARD_PORT ?? '8080');
 const CAPITAL   = parseFloat(process.env.CAPITAL      ?? '10000');
 const DEMO_MODE = process.env.DEMO_MODE !== 'false';
 const POLL_MS   = parseInt(process.env.POLL_MS ?? String(DEMO_MODE ? 3_000 : 60_000));
