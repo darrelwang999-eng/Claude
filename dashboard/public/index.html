@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YieldFlow · Stablecoin Optimizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+/* ── Reset & tokens ─────────────────────────────────────────────────────── */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#07090f;
+  --s1:#0d1117;
+  --s2:#111827;
+  --s3:#1a2235;
+  --b1:rgba(255,255,255,.06);
+  --b2:rgba(255,255,255,.03);
+  --green:#10b981;--green2:#34d399;--green-a:rgba(16,185,129,.15);--green-b:rgba(16,185,129,.06);
+  --blue:#3b82f6; --blue-a:rgba(59,130,246,.15);
+  --yellow:#f59e0b;--yellow-a:rgba(245,158,11,.15);
+  --red:#ef4444;
+  --text:#f1f5f9;--t2:#94a3b8;--t3:#475569;
+  --r:12px;--r2:8px;
+  --ff:"Inter",system-ui,sans-serif;
+  --fm:"JetBrains Mono",ui-monospace,monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--ff);font-size:14px;overflow-x:hidden}
+
+/* ── Background glow ────────────────────────────────────────────────────── */
+body::before{
+  content:'';position:fixed;top:-30%;left:-20%;width:60%;height:60%;
+  background:radial-gradient(ellipse,rgba(16,185,129,.07) 0%,transparent 70%);
+  pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;bottom:-20%;right:-10%;width:50%;height:50%;
+  background:radial-gradient(ellipse,rgba(59,130,246,.06) 0%,transparent 70%);
+  pointer-events:none;z-index:0;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+.wrap{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:0 28px 32px}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:18px 0 20px;border-bottom:1px solid var(--b1);margin-bottom:28px;
+}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{
+  width:36px;height:36px;border-radius:10px;
+  background:linear-gradient(135deg,var(--green),#059669);
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+}
+.logo-text{font-size:18px;font-weight:800;letter-spacing:-.3px}
+.logo-text span{color:var(--green)}
+.logo-tag{
+  font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;
+  background:var(--green-a);color:var(--green);letter-spacing:.5px;
+  text-transform:uppercase;margin-left:4px;
+}
+.header-right{display:flex;align-items:center;gap:20px}
+.live-pill{
+  display:flex;align-items:center;gap:7px;
+  background:var(--s2);border:1px solid var(--b1);
+  padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,.4)}50%{opacity:.7;box-shadow:0 0 0 4px rgba(16,185,129,0)}}
+#liveTs{color:var(--t2);font-family:var(--fm);font-size:11px}
+.demo-badge{
+  font-size:11px;font-weight:700;letter-spacing:.5px;padding:5px 12px;border-radius:6px;
+  background:var(--yellow-a);color:var(--yellow);border:1px solid rgba(245,158,11,.2);
+  text-transform:uppercase;display:none;
+}
+
+/* ── Hero KPI row ───────────────────────────────────────────────────────── */
+.hero{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:20px}
+.kpi{
+  background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);
+  padding:20px 22px;position:relative;overflow:hidden;transition:border-color .3s;
+}
+.kpi::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(16,185,129,.4),transparent);
+  opacity:0;transition:opacity .3s;
+}
+.kpi.flash::before{opacity:1}
+.kpi-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--t2);margin-bottom:10px}
+.kpi-val{font-size:28px;font-weight:800;letter-spacing:-.5px;line-height:1;font-variant-numeric:tabular-nums}
+.kpi-sub{font-size:12px;color:var(--t2);margin-top:6px;font-family:var(--fm)}
+.kpi-icon{position:absolute;right:18px;top:18px;font-size:22px;opacity:.2}
+.c-green{color:var(--green)}.c-blue{color:var(--blue)}.c-yellow{color:var(--yellow)}.c-red{color:var(--red)}.c-t2{color:var(--t2)}
+
+/* ── Signal bar ─────────────────────────────────────────────────────────── */
+.signal{
+  border-radius:var(--r);padding:14px 20px;
+  display:flex;align-items:center;gap:14px;margin-bottom:20px;
+  border:1px solid;transition:all .4s;
+}
+.signal-hold  {background:var(--blue-a); border-color:rgba(59,130,246,.25); color:var(--blue)}
+.signal-rotate{background:var(--yellow-a);border-color:rgba(245,158,11,.25);color:var(--yellow)}
+.sig-icon{font-size:22px;flex-shrink:0}
+.sig-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;opacity:.7}
+.sig-action{font-size:16px;font-weight:700;margin-top:2px}
+.sig-reason{font-size:12px;opacity:.8;font-family:var(--fm);margin-top:3px;color:var(--t2)}
+.sig-right{margin-left:auto;text-align:right}
+.sig-time{font-size:11px;color:var(--t3);font-family:var(--fm)}
+
+/* ── Main grid ──────────────────────────────────────────────────────────── */
+.grid2{display:grid;grid-template-columns:3fr 2fr;gap:20px;margin-bottom:20px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+
+/* ── Card ───────────────────────────────────────────────────────────────── */
+.card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:22px}
+.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.card-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--t2)}
+.badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px}
+.badge-green{background:var(--green-a);color:var(--green)}
+.badge-blue{background:var(--blue-a);color:var(--blue)}
+.badge-yellow{background:var(--yellow-a);color:var(--yellow)}
+
+/* ── Chart ──────────────────────────────────────────────────────────────── */
+.chart-wrap{height:230px;position:relative}
+
+/* ── APY bars ───────────────────────────────────────────────────────────── */
+.apy-rows{display:flex;flex-direction:column;gap:12px}
+.apy-row{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:10px}
+.apy-meta{display:flex;flex-direction:column;gap:1px}
+.apy-name{font-size:13px;font-weight:500;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.apy-row.active .apy-name{color:var(--text);font-weight:700}
+.apy-chain{font-size:10px;color:var(--t3)}
+.apy-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.bar-track{width:100%;background:rgba(255,255,255,.04);border-radius:4px;height:6px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;background:rgba(59,130,246,.4);transition:width .7s ease}
+.apy-row.active .bar-fill{background:linear-gradient(90deg,var(--green),var(--green2))}
+.apy-pct{font-size:14px;font-weight:700;font-family:var(--fm);color:var(--t2)}
+.apy-row.active .apy-pct{color:var(--green)}
+.chain-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px}
+
+/* ── Rotation log ───────────────────────────────────────────────────────── */
+.rot-list{display:flex;flex-direction:column;gap:10px;max-height:260px;overflow-y:auto}
+.rot-list::-webkit-scrollbar{width:3px}.rot-list::-webkit-scrollbar-track{background:transparent}.rot-list::-webkit-scrollbar-thumb{background:var(--b1);border-radius:2px}
+.rot-item{
+  background:var(--s2);border:1px solid var(--b1);border-radius:var(--r2);
+  padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:8px;
+  animation:fadeIn .4s ease;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.rot-from-to{display:flex;align-items:center;gap:6px;font-size:13px}
+.rot-pool{
+  display:inline-block;padding:2px 9px;border-radius:5px;font-size:12px;font-weight:600;
+  background:var(--blue-a);color:var(--blue);
+}
+.rot-pool.to{background:var(--green-a);color:var(--green)}
+.rot-arrow{color:var(--t3);font-size:12px}
+.rot-reason{font-size:11px;color:var(--t3);margin-top:4px;font-family:var(--fm)}
+.rot-right{text-align:right}
+.rot-gain{font-size:13px;font-weight:700;color:var(--green)}
+.rot-ts{font-size:11px;color:var(--t3);font-family:var(--fm);margin-top:3px}
+.rot-empty{color:var(--t3);font-size:13px;text-align:center;padding:30px 0}
+
+/* ── Stats grid ─────────────────────────────────────────────────────────── */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r2);padding:14px}
+.stat-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);margin-bottom:6px}
+.stat-val{font-size:20px;font-weight:700;font-family:var(--fm)}
+
+/* ── Chain pills ────────────────────────────────────────────────────────── */
+.chain-list{display:flex;flex-direction:column;gap:8px}
+.chain-row{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--s2);border:1px solid var(--b1);border-radius:var(--r2);padding:10px 14px;
+}
+.chain-name{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500}
+.chain-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.chain-apy{font-size:13px;font-weight:700;font-family:var(--fm);color:var(--green)}
+.chain-gas{font-size:11px;color:var(--t3);text-align:right}
+
+/* ── Toast ──────────────────────────────────────────────────────────────── */
+#toast{
+  position:fixed;bottom:28px;right:28px;z-index:999;
+  display:flex;flex-direction:column;gap:10px;pointer-events:none;
+}
+.toast-item{
+  background:var(--s2);border:1px solid rgba(16,185,129,.3);border-radius:var(--r);
+  padding:14px 18px;min-width:300px;box-shadow:0 8px 32px rgba(0,0,0,.4);
+  animation:slideIn .3s ease;
+}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:none;opacity:1}}
+.toast-title{font-size:13px;font-weight:700;color:var(--green);margin-bottom:4px}
+.toast-body{font-size:12px;color:var(--t2);font-family:var(--fm)}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media(max-width:1100px){
+  .hero{grid-template-columns:repeat(3,1fr)}
+  .grid2,.grid3{grid-template-columns:1fr}
+}
+
+/* ── Subscribe CTA ──────────────────────────────────────────────────────── */
+.sub-section{margin-top:20px}
+.sub-card{
+  background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(59,130,246,.04));
+  border:1px solid rgba(16,185,129,.22);border-radius:var(--r);
+  padding:28px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px;
+}
+.sub-info{flex:1}
+.sub-title{font-size:20px;font-weight:800;margin-bottom:8px}
+.sub-title span{color:var(--green)}
+.sub-desc{font-size:13px;color:var(--t2);line-height:1.65;max-width:560px}
+.sub-features{display:flex;gap:18px;margin-top:14px;flex-wrap:wrap}
+.sub-feat{font-size:12px;color:var(--t2);display:flex;align-items:center;gap:5px}
+.sub-feat::before{content:'✓';color:var(--green);font-weight:800}
+.sub-cta{display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex-shrink:0}
+.sub-price{text-align:right}
+.sub-amount{font-size:32px;font-weight:800;color:var(--green);line-height:1}
+.sub-currency{font-size:12px;color:var(--t2);margin-top:2px}
+.btn-subscribe{
+  background:linear-gradient(135deg,#10b981,#059669);
+  color:#fff;border:none;border-radius:10px;padding:14px 32px;
+  font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.2px;
+  transition:opacity .2s,transform .1s;white-space:nowrap;
+}
+.btn-subscribe:hover{opacity:.9;transform:translateY(-1px)}
+.sub-note{font-size:11px;color:var(--t3);text-align:right}
+.sub-count{color:var(--green);font-weight:600}
+@media(max-width:700px){.sub-card{flex-direction:column;align-items:flex-start}.sub-cta{align-items:flex-start}}
+
+/* ── Modal ──────────────────────────────────────────────────────────────── */
+.modal-bg{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);
+  backdrop-filter:blur(7px);z-index:1000;align-items:center;justify-content:center;
+}
+.modal-bg.open{display:flex}
+.modal{
+  background:var(--s1);border:1px solid rgba(255,255,255,.09);border-radius:18px;
+  width:min(540px,95vw);padding:28px;position:relative;
+  box-shadow:0 24px 80px rgba(0,0,0,.65);animation:modalIn .22s ease;
+}
+@keyframes modalIn{from{transform:scale(.96) translateY(10px);opacity:0}to{transform:none;opacity:1}}
+.modal-close{
+  position:absolute;top:14px;right:14px;background:var(--b1);border:none;color:var(--t2);
+  width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+}
+.modal-close:hover{background:var(--s3);color:var(--text)}
+.step-dots{display:flex;gap:7px;justify-content:center;margin-bottom:22px}
+.step-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.1);transition:background .3s}
+.step-dot.done{background:rgba(16,185,129,.4)}
+.step-dot.active{background:var(--green)}
+.modal-step{display:none}
+.modal-step.active{display:block}
+.step-tag{font-size:11px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px}
+.step-title{font-size:19px;font-weight:800;margin-bottom:4px}
+.step-sub{font-size:13px;color:var(--t2);margin-bottom:20px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--b1)}
+.info-row:last-child{border-bottom:none}
+.info-key{font-size:12px;color:var(--t3)}
+.info-val{font-size:12.5px;font-weight:600;font-family:var(--fm);max-width:320px;text-align:right;word-break:break-all}
+.cmd-box{background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:12px 14px;margin:16px 0;position:relative}
+.cmd-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);margin-bottom:6px}
+.cmd-txt{font-family:var(--fm);font-size:11.5px;color:var(--green2);word-break:break-all;line-height:1.6;padding-right:52px}
+.cmd-copy{
+  position:absolute;top:8px;right:8px;background:var(--b1);border:1px solid var(--b1);
+  color:var(--t2);padding:3px 9px;border-radius:4px;font-size:10px;cursor:pointer;
+}
+.cmd-copy:hover{background:var(--s3);color:var(--text)}
+.modal-lbl{font-size:12px;color:var(--t2);margin-bottom:4px}
+.modal-input{
+  width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:8px;
+  color:var(--text);font-family:var(--fm);font-size:12px;padding:10px 12px;resize:none;
+  outline:none;transition:border-color .2s;
+}
+.modal-input:focus{border-color:rgba(16,185,129,.4)}
+.modal-input::placeholder{color:var(--t3)}
+.modal-err{font-size:12px;color:var(--red);margin-top:6px;display:none}
+.btn-primary{
+  width:100%;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;
+  border-radius:10px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;
+  margin-top:14px;transition:opacity .2s;
+}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.45;cursor:default}
+.success-icon{font-size:52px;text-align:center;margin:4px 0 18px;animation:popIn .4s cubic-bezier(.175,.885,.32,1.275)}
+@keyframes popIn{from{transform:scale(0);opacity:0}to{transform:none;opacity:1}}
+.signal-reveal{
+  background:linear-gradient(135deg,rgba(16,185,129,.1),rgba(59,130,246,.05));
+  border:1px solid rgba(16,185,129,.2);border-radius:11px;padding:16px 18px;margin:14px 0;
+}
+.reveal-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--green);margin-bottom:10px}
+.reveal-action{font-size:24px;font-weight:800;margin-bottom:3px}
+.reveal-detail{font-size:13px;color:var(--t2);margin-bottom:2px}
+.reveal-apy{font-size:17px;font-weight:700;color:var(--green);margin-top:4px}
+.wallet-box{background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:12px;font-size:12px;color:var(--t2);margin-top:10px;line-height:1.6}
+.wallet-box strong{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">◈</div>
+    <div>
+      <span class="logo-text">Yield<span>Flow</span></span>
+      <span class="logo-tag">Beta</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="demo-badge" id="demoBadge">⚡ Demo Mode</span>
+    <div class="live-pill">
+      <div class="dot" id="dot"></div>
+      <span>Live</span>
+      <span id="liveTs">—</span>
+    </div>
+  </div>
+</header>
+
+<!-- KPI Hero -->
+<div class="hero">
+  <div class="kpi" id="kBalance">
+    <div class="kpi-icon">💰</div>
+    <div class="kpi-label">Portfolio Value</div>
+    <div class="kpi-val" id="vBalance">$—</div>
+    <div class="kpi-sub" id="vCapital">Capital $—</div>
+  </div>
+  <div class="kpi" id="kPnl">
+    <div class="kpi-icon">📈</div>
+    <div class="kpi-label">Total PnL</div>
+    <div class="kpi-val c-green" id="vPnl">$—</div>
+    <div class="kpi-sub" id="vPnlPct">—%</div>
+  </div>
+  <div class="kpi" id="kApy">
+    <div class="kpi-icon">⚡</div>
+    <div class="kpi-label">Annualized APY</div>
+    <div class="kpi-val c-green" id="vApy">—%</div>
+    <div class="kpi-sub">vs. 4.9% buy-and-hold</div>
+  </div>
+  <div class="kpi" id="kPool">
+    <div class="kpi-icon">🏊</div>
+    <div class="kpi-label">Active Pool</div>
+    <div class="kpi-val c-blue" id="vPool" style="font-size:18px">—</div>
+    <div class="kpi-sub" id="vPoolApy">—</div>
+  </div>
+  <div class="kpi" id="kMoves">
+    <div class="kpi-icon">🔄</div>
+    <div class="kpi-label">Total Rotations</div>
+    <div class="kpi-val c-t2" id="vMoves">0</div>
+    <div class="kpi-sub" id="vGas">Gas paid $—</div>
+  </div>
+</div>
+
+<!-- Signal -->
+<div class="signal signal-hold" id="signal">
+  <div class="sig-icon" id="sigIcon">⏸</div>
+  <div>
+    <div class="sig-label">Strategy Signal</div>
+    <div class="sig-action" id="sigAction">HOLD</div>
+    <div class="sig-reason" id="sigReason">Initializing…</div>
+  </div>
+  <div class="sig-right">
+    <div class="sig-time" id="sigTime">—</div>
+  </div>
+</div>
+
+<!-- Charts row -->
+<div class="grid2">
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">Portfolio Performance</div>
+      <span class="badge badge-green" id="chartBadge">+$0.00</span>
+    </div>
+    <div class="chart-wrap"><canvas id="balChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">Live APY Comparison</div>
+      <span class="badge badge-blue" id="bestBadge">Best: —</span>
+    </div>
+    <div class="apy-rows" id="apyRows"></div>
+  </div>
+</div>
+
+<!-- Bottom row -->
+<div class="grid3">
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">Rotation Log</div>
+      <span class="badge badge-yellow" id="rotBadge">0 moves</span>
+    </div>
+    <div class="rot-list" id="rotList">
+      <div class="rot-empty">No rotations yet — monitoring pools…</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">Strategy Stats</div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-label">Best Day</div><div class="stat-val c-green" id="sBest">$—</div></div>
+      <div class="stat"><div class="stat-label">Avg Daily</div><div class="stat-val c-blue" id="sAvg">$—</div></div>
+      <div class="stat"><div class="stat-label">Days Active</div><div class="stat-val" id="sDays">—</div></div>
+      <div class="stat"><div class="stat-label">Gas / PnL</div><div class="stat-val c-green" id="sGasPct">—%</div></div>
+      <div class="stat"><div class="stat-label">Pools Tracked</div><div class="stat-val" id="sPools">6</div></div>
+      <div class="stat"><div class="stat-label">Peak APY</div><div class="stat-val c-green" id="sPeak">—%</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">Chain Coverage</div>
+      <span class="badge badge-green">Low-Gas Only</span>
+    </div>
+    <div class="chain-list">
+      <div class="chain-row">
+        <div class="chain-name">
+          <div class="chain-icon" style="background:rgba(0,82,255,.15)">🔵</div>
+          <div><div>Base</div><div style="font-size:11px;color:var(--t3)">Aave V3 · Compound V3</div></div>
+        </div>
+        <div><div class="chain-apy" id="cBase">—%</div><div class="chain-gas">~$0.25/tx</div></div>
+      </div>
+      <div class="chain-row">
+        <div class="chain-name">
+          <div class="chain-icon" style="background:rgba(153,69,255,.15)">🟣</div>
+          <div><div>Solana</div><div style="font-size:11px;color:var(--t3)">Kamino · MarginFi · Save</div></div>
+        </div>
+        <div><div class="chain-apy" id="cSolana">—%</div><div class="chain-gas">~$0.001/tx</div></div>
+      </div>
+      <div class="chain-row">
+        <div class="chain-name">
+          <div class="chain-icon" style="background:rgba(0,180,120,.15)">🟢</div>
+          <div><div>X Layer</div><div style="font-size:11px;color:var(--t3)">Aave V3 · USDG native</div></div>
+        </div>
+        <div><div class="chain-apy" id="cXLayer">—%</div><div class="chain-gas">~$0.05/tx</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+  <!-- Subscribe CTA -->
+  <div class="sub-section">
+    <div class="sub-card">
+      <div class="sub-info">
+        <div class="sub-title">Subscribe to <span>YieldFlow Signals</span></div>
+        <div class="sub-desc">Get real-time rebalancing signals pushed directly to your agent wallet. Follow the strategy automatically and capture the same 7%+ APY — every rotation, every opportunity, delivered instantly.</div>
+        <div class="sub-features">
+          <div class="sub-feat">Instant signal delivery</div>
+          <div class="sub-feat">Agent wallet push notifications</div>
+          <div class="sub-feat">Auto-rebalance execution</div>
+          <div class="sub-feat">Powered by OKX OnchainOS x402</div>
+        </div>
+      </div>
+      <div class="sub-cta">
+        <div class="sub-price">
+          <div class="sub-amount">0.10</div>
+          <div class="sub-currency">USDG · per signal</div>
+        </div>
+        <button class="btn-subscribe" id="btnSubscribe">⚡ Subscribe Now</button>
+        <div class="sub-note"><span class="sub-count" id="subCount">0 subscribers</span> · X Layer · USDG</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+
+<!-- Toast container -->
+<div id="toast"></div>
+
+<!-- Payment Modal -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <button class="modal-close" id="modalClose">✕</button>
+    <div class="step-dots">
+      <div class="step-dot active" id="sdot1"></div>
+      <div class="step-dot" id="sdot2"></div>
+      <div class="step-dot" id="sdot3"></div>
+    </div>
+
+    <!-- Step 1: payment details + onchainos command -->
+    <div class="modal-step active" id="mstep1">
+      <div class="step-tag">Step 1 of 2</div>
+      <div class="step-title">Payment Details</div>
+      <div class="step-sub">0.1 USDG on X Layer · OKX OnchainOS x402</div>
+      <div id="mPayInfo">
+        <div style="color:var(--t3);font-size:13px;padding:16px 0">Loading payment info…</div>
+      </div>
+      <div class="cmd-box" id="mCmdBox" style="display:none">
+        <div class="cmd-lbl">Run in your terminal (OKX OnchainOS CLI)</div>
+        <div class="cmd-txt" id="mCmdTxt"></div>
+        <button class="cmd-copy" id="mCopyBtn">Copy</button>
+      </div>
+      <button class="btn-primary" id="btnToStep2">Continue — Paste Token →</button>
+    </div>
+
+    <!-- Step 2: paste signed payment token -->
+    <div class="modal-step" id="mstep2">
+      <div class="step-tag">Step 2 of 2</div>
+      <div class="step-title">Paste Payment Token</div>
+      <div class="step-sub">Paste the signed token output from your onchainos command</div>
+      <div class="modal-lbl">Payment signature / token:</div>
+      <textarea class="modal-input" id="mToken" rows="4" placeholder="Paste onchainos payment output here…"></textarea>
+      <div class="modal-err" id="mErr"></div>
+      <button class="btn-primary" id="btnVerify">Verify &amp; Subscribe</button>
+    </div>
+
+    <!-- Step 3: success -->
+    <div class="modal-step" id="mstep3">
+      <div class="success-icon">🎉</div>
+      <div style="text-align:center;margin-bottom:4px">
+        <div class="step-title">You're Subscribed!</div>
+        <div class="step-sub" style="margin-bottom:0">Signal delivered · Wallet registered for push notifications</div>
+      </div>
+      <div class="signal-reveal" id="mReveal">
+        <div class="reveal-lbl">Current Signal</div>
+        <div class="reveal-action" id="mRevAction">—</div>
+        <div class="reveal-detail" id="mRevPool">—</div>
+        <div class="reveal-apy" id="mRevApy">—</div>
+      </div>
+      <div class="wallet-box" id="mWalletBox">
+        <strong>Wallet registered:</strong> <span id="mRevWallet">—</span><br>
+        Future rebalancing signals will be pushed automatically to your agent wallet.
+      </div>
+      <button class="btn-primary" id="btnDone">Done ✓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Chart ───────────────────────────────────────────────────────────────────
+const ctx = document.getElementById('balChart').getContext('2d');
+const grad = ctx.createLinearGradient(0,0,0,230);
+grad.addColorStop(0,'rgba(16,185,129,.25)');
+grad.addColorStop(1,'rgba(16,185,129,0)');
+
+const balChart = new Chart(ctx,{
+  type:'line',
+  data:{
+    labels:[],
+    datasets:[{
+      label:'Balance',data:[],
+      borderColor:'#10b981',backgroundColor:grad,
+      borderWidth:2,pointRadius:0,fill:true,tension:.4,
+    },{
+      label:'PnL',data:[],
+      borderColor:'rgba(59,130,246,.6)',backgroundColor:'transparent',
+      borderWidth:1.5,borderDash:[5,4],pointRadius:0,fill:false,tension:.4,
+      yAxisID:'y2',
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:'#111827',borderColor:'rgba(255,255,255,.08)',borderWidth:1,
+        titleColor:'#94a3b8',bodyColor:'#f1f5f9',padding:10,
+        callbacks:{label:c=>' '+c.dataset.label+': $'+c.raw.toFixed(2)}
+      }
+    },
+    scales:{
+      x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#475569',maxTicksLimit:7,
+        callback(_,i){const l=this.chart.data.labels[i]||'';return l?l.slice(5,10):''}
+      }},
+      y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#475569',callback:v=>'$'+v.toFixed(0)}},
+      y2:{position:'right',grid:{display:false},ticks:{color:'rgba(59,130,246,.6)',callback:v=>'+$'+v.toFixed(1)}},
+    }
+  }
+});
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+const $=id=>document.getElementById(id);
+const money = n=>'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct   = n=>(n*100).toFixed(2)+'%';
+const ts2h  = ts=>ts.slice(11,16);
+const ts2d  = ts=>ts.slice(5,10);
+
+const CHAIN_META={
+  aave_base:    {label:'Aave V3',    chain:'Base',    color:'#3b82f6'},
+  compound_base:{label:'Compound',   chain:'Base',    color:'#3b82f6'},
+  kamino_sol:   {label:'Kamino',     chain:'Solana',  color:'#9945ff'},
+  marginfi_sol: {label:'MarginFi',   chain:'Solana',  color:'#9945ff'},
+  save_sol:     {label:'Save',       chain:'Solana',  color:'#9945ff'},
+  xlayer_aave:  {label:'Aave V3',    chain:'X Layer', color:'#10b981'},
+};
+
+function flash(id){
+  const el=$(id);if(!el)return;
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+  setTimeout(()=>el.classList.remove('flash'),1000);
+}
+
+function showToast(title,body){
+  const t=$('toast');
+  const d=document.createElement('div');
+  d.className='toast-item';
+  d.innerHTML=`<div class="toast-title">⚡ ${title}</div><div class="toast-body">${body}</div>`;
+  t.appendChild(d);
+  setTimeout(()=>{d.style.animation='slideIn .3s ease reverse';setTimeout(()=>d.remove(),300)},4500);
+}
+
+// ── Animated counter ─────────────────────────────────────────────────────────
+function animVal(el,target,prefix='$',decimals=2){
+  const start=parseFloat(el.dataset.val||target)||target;
+  const dur=600,step=16;let t=0;
+  el.dataset.val=target;
+  const tick=()=>{
+    t+=step;const p=Math.min(1,t/dur);const v=start+(target-start)*p;
+    el.textContent=prefix+Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+    if(p<1)requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+// ── Apply state ───────────────────────────────────────────────────────────────
+let prevRotLen=0;
+let peakApy=0;
+
+function applyState(s){
+  const meta=s.poolMeta||CHAIN_META;
+
+  // Header
+  $('liveTs').textContent=ts2h(s.ts);
+
+  // Demo badge
+  if(s.demoMode) $('demoBadge').style.display='block';
+
+  // KPI
+  animVal($('vBalance'),s.balance,'$',2);
+  $('vCapital').textContent='Capital '+money(s.capital);
+
+  const pnlEl=$('vPnl');
+  pnlEl.className='kpi-val '+(s.pnl>=0?'c-green':'c-red');
+  animVal(pnlEl,s.pnl,(s.pnl>=0?'+$':'-$'),2);
+  $('vPnlPct').textContent=(s.pnlPct>=0?'+':'')+s.pnlPct.toFixed(3)+'%  (30d)';
+
+  animVal($('vApy'),s.annualizedApy,'',2);
+  $('vApy').textContent=(s.annualizedApy).toFixed(2)+'%';
+  $('vApy').className='kpi-val '+(s.annualizedApy>=7?'c-green':'c-yellow');
+
+  const poolLabel=(meta[s.currentPool]?.label||s.currentPool||'—')+'\n'+(meta[s.currentPool]?.chain||'');
+  $('vPool').textContent=meta[s.currentPool]?.label||s.currentPool||'—';
+  $('vPoolApy').textContent=(meta[s.currentPool]?.chain||'')+'  ·  '+(s.currentApy*100).toFixed(2)+'% APY';
+
+  $('vMoves').textContent=s.rotations.length;
+  const totalGas=s.rotations.reduce((a,r)=>a+(r.gas||0),0);
+  $('vGas').textContent='Gas paid $'+totalGas.toFixed(3);
+
+  ['kBalance','kPnl','kApy','kPool','kMoves'].forEach(flash);
+
+  // Signal
+  const sig=s.signal||{};
+  const sigEl=$('signal');
+  sigEl.className='signal '+(sig.action==='hold'?'signal-hold':'signal-rotate');
+  $('sigIcon').textContent=sig.action==='hold'?'⏸':'⚡';
+  $('sigAction').textContent=(sig.action||'hold').toUpperCase().replace('_',' ');
+  $('sigReason').textContent=sig.reason||'—';
+  $('sigTime').textContent='Last checked '+ts2h(s.ts);
+
+  // Chart badge
+  $('chartBadge').textContent=(s.pnl>=0?'+':'')+money(s.pnl);
+  $('chartBadge').className='badge '+(s.pnl>=0?'badge-green':'');
+  $('chartBadge').style.color=s.pnl>=0?'var(--green)':'var(--red)';
+
+  // Balance chart
+  const hist=s.balanceHistory||[];
+  balChart.data.labels=hist.map(h=>h.ts);
+  balChart.data.datasets[0].data=hist.map(h=>h.balance);
+  balChart.data.datasets[1].data=hist.map(h=>+(h.balance-s.capital).toFixed(4));
+  balChart.update('none');
+
+  // APY bars
+  const yields=s.yields||{};
+  const sorted=Object.entries(yields).sort(([,a],[,b])=>b-a);
+  const maxApy=sorted[0]?.[1]||.1;
+  peakApy=Math.max(peakApy,...sorted.map(([,v])=>v));
+  $('bestBadge').textContent='Best: '+pct(maxApy);
+
+  const apyRows=$('apyRows');
+  apyRows.innerHTML='';
+  sorted.forEach(([id,apy])=>{
+    const m=CHAIN_META[id]||{label:id,chain:'',color:'#3b82f6'};
+    const isActive=id===s.currentPool;
+    const bar=Math.min(100,(apy/maxApy)*100).toFixed(1);
+    const row=document.createElement('div');
+    row.className='apy-row'+(isActive?' active':'');
+    row.innerHTML=`
+      <div class="apy-meta">
+        <div class="apy-name">${m.label}${isActive?' ◀':''}</div>
+        <div class="apy-chain"><span class="chain-dot" style="background:${m.color}"></span>${m.chain}</div>
+      </div>
+      <div class="apy-right">
+        <div class="bar-track"><div class="bar-fill" style="width:${bar}%"></div></div>
+        <div class="apy-pct">${pct(apy)}</div>
+      </div>`;
+    apyRows.appendChild(row);
+  });
+
+  // Chain best APYs
+  const byChain={Base:[],Solana:[],XLayer:[]};
+  sorted.forEach(([id,apy])=>{
+    const c=(CHAIN_META[id]?.chain||'');
+    if(c==='Base')byChain.Base.push(apy);
+    else if(c==='Solana')byChain.Solana.push(apy);
+    else if(c==='X Layer')byChain.XLayer.push(apy);
+  });
+  $('cBase').textContent=  byChain.Base.length  ?pct(Math.max(...byChain.Base)):'—';
+  $('cSolana').textContent=byChain.Solana.length ?pct(Math.max(...byChain.Solana)):'—';
+  $('cXLayer').textContent=byChain.XLayer.length ?pct(Math.max(...byChain.XLayer)):'—';
+
+  // Rotation log
+  const rots=s.rotations||[];
+  $('rotBadge').textContent=rots.length+' move'+(rots.length!==1?'s':'');
+  const rotList=$('rotList');
+
+  if(rots.length===0){
+    rotList.innerHTML='<div class="rot-empty">No rotations yet — monitoring pools…</div>';
+  } else {
+    if(rots.length!==prevRotLen){
+      rotList.innerHTML='';
+      rots.slice(0,10).forEach(r=>{
+        const fromL=(CHAIN_META[r.from]?.label||r.from||'—');
+        const toL  =(CHAIN_META[r.to]?.label  ||r.to  ||'—');
+        const apyD =((r.apyAfter||0)-(r.apyBefore||0))*100;
+        const balD =(r.balanceAfter||0)-(r.balanceBefore||0);
+        const div=document.createElement('div');
+        div.className='rot-item';
+        div.innerHTML=`
+          <div>
+            <div class="rot-from-to">
+              <span class="rot-pool">${fromL}</span>
+              <span class="rot-arrow">→</span>
+              <span class="rot-pool to">${toL}</span>
+            </div>
+            <div class="rot-reason">${apyD>=0?'+':''}${apyD.toFixed(2)}% APY · ${r.reason?.slice(0,55)||''}</div>
+          </div>
+          <div class="rot-right">
+            <div class="rot-gain ${balD>=0?'':'c-red'}">${balD>=0?'+':'-'}$${Math.abs(balD).toFixed(3)}</div>
+            <div class="rot-ts">${ts2d(r.ts)} ${ts2h(r.ts)}</div>
+          </div>`;
+        rotList.appendChild(div);
+      });
+    }
+    prevRotLen=rots.length;
+  }
+
+  // Subscriber count on CTA
+  if(typeof s.subscribers==='number'){
+    const cnt=s.subscribers;
+    $('subCount').textContent=cnt+' subscriber'+(cnt!==1?'s':'');
+  }
+
+  // Stats
+  const bh=(s.balanceHistory||[]).map(h=>h.balance);
+  const deltas=bh.slice(1).map((b,i)=>b-bh[i]);
+  const best=deltas.length?Math.max(...deltas):0;
+  const avg =deltas.length?deltas.reduce((a,b)=>a+b,0)/deltas.length:0;
+  $('sBest').textContent='+$'+best.toFixed(3);
+  $('sAvg').textContent ='$'+avg.toFixed(3);
+  $('sDays').textContent=bh.length+' ticks';
+  const gasPct=totalGas/s.pnl*100;
+  $('sGasPct').textContent=isFinite(gasPct)?gasPct.toFixed(1)+'%':'0%';
+  $('sPools').textContent=Object.keys(yields).length||6;
+  $('sPeak').textContent=(peakApy*100).toFixed(2)+'%';
+
+  // Toast on new rotation
+  if(rots.length>prevRotLen&&rots.length>0){
+    const r=rots[0];
+    const fromL=CHAIN_META[r.from]?.label||r.from||'?';
+    const toL  =CHAIN_META[r.to]?.label  ||r.to  ||'?';
+    const apyD =((r.apyAfter||0)-(r.apyBefore||0))*100;
+    showToast('Portfolio Rotated',`${fromL} → ${toL}  ·  APY +${apyD.toFixed(2)}%  ·  Gas $${(r.gas||0).toFixed(3)}`);
+  }
+}
+
+// ── Subscribe / Payment Modal ─────────────────────────────────────────────────
+let _signalInfo = null;
+let _currentStep = 1;
+
+function setStep(n) {
+  _currentStep = n;
+  [1,2,3].forEach(i => {
+    $('mstep'+i).classList.toggle('active', i===n);
+    const dot = $('sdot'+i);
+    dot.classList.toggle('active', i===n);
+    dot.classList.toggle('done', i<n);
+  });
+}
+
+async function openSubscribeModal() {
+  setStep(1);
+  $('mToken').value = '';
+  $('mErr').style.display = 'none';
+  $('btnVerify').disabled = false;
+  $('btnVerify').textContent = 'Verify & Subscribe';
+  $('modalBg').classList.add('open');
+
+  try {
+    const r = await fetch('/api/signal-info');
+    _signalInfo = await r.json();
+    $('mPayInfo').innerHTML = `
+      <div class="info-row">
+        <span class="info-key">Amount</span>
+        <span class="info-val c-green">${_signalInfo.amountHuman} ${_signalInfo.currency}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">Network</span>
+        <span class="info-val">${_signalInfo.network}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">Pay To</span>
+        <span class="info-val">${_signalInfo.payTo}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">Asset (USDG)</span>
+        <span class="info-val">${_signalInfo.asset}</span>
+      </div>`;
+    if (_signalInfo.payTo && _signalInfo.payTo !== '(run seller setup first)') {
+      const cmd = `onchainos payment x402-pay --network ${_signalInfo.network} --amount ${_signalInfo.amount} --pay-to ${_signalInfo.payTo} --asset ${_signalInfo.asset} --max-timeout-seconds 300`;
+      $('mCmdTxt').textContent = cmd;
+      $('mCmdBox').style.display = 'block';
+      $('mCopyBtn').onclick = () => {
+        navigator.clipboard.writeText(cmd).then(() => {
+          $('mCopyBtn').textContent = 'Copied!';
+          setTimeout(() => { $('mCopyBtn').textContent = 'Copy'; }, 1600);
+        });
+      };
+    } else {
+      $('mCmdBox').style.display = 'none';
+    }
+  } catch(e) {
+    $('mPayInfo').innerHTML = '<div style="color:var(--red);font-size:13px;padding:12px 0">Failed to load payment info. Make sure the server is running.</div>';
+  }
+}
+
+function closeModal() {
+  $('modalBg').classList.remove('open');
+}
+
+async function verifyAndSubscribe() {
+  const token = $('mToken').value.trim();
+  const errEl = $('mErr');
+  const btn   = $('btnVerify');
+
+  if (!token) {
+    errEl.textContent = 'Please paste your payment token.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Verifying…';
+  errEl.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/signal', {
+      headers: { 'x-payment': token }
+    });
+
+    if (res.status === 402) {
+      const body = await res.json().catch(() => ({ error: 'Payment rejected' }));
+      errEl.textContent = 'Payment rejected: ' + (body.error || 'Invalid token');
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Verify & Subscribe';
+      return;
+    }
+
+    if (!res.ok) throw new Error('Server error ' + res.status);
+
+    const data = await res.json();
+    const sig  = data.signal || {};
+    $('mRevAction').textContent = (sig.action || 'hold').toUpperCase().replace(/_/g,' ');
+    $('mRevPool').textContent   = 'Active pool: ' + (data.currentPool || '—');
+    $('mRevApy').textContent    = ((data.currentApy || 0)*100).toFixed(2) + '% APY';
+    $('mRevWallet').textContent = data.subscriber || '—';
+
+    setStep(3);
+    showToast('Subscribed via OKX!', 'Signal delivered · Wallet registered for push notifications');
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Verify & Subscribe';
+  }
+}
+
+$('btnSubscribe').addEventListener('click', openSubscribeModal);
+$('modalClose').addEventListener('click', closeModal);
+$('btnDone').addEventListener('click', closeModal);
+$('btnToStep2').addEventListener('click', () => setStep(2));
+$('btnVerify').addEventListener('click', verifyAndSubscribe);
+$('modalBg').addEventListener('click', e => { if(e.target === $('modalBg')) closeModal(); });
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function connect(){
+  const ws=new WebSocket(`ws://${location.host}`);
+  ws.onopen   =()=>{$('dot').style.background='var(--green)'};
+  ws.onclose  =()=>{$('dot').style.background='var(--red)';setTimeout(connect,3000)};
+  ws.onerror  =()=>ws.close();
+  ws.onmessage=e=>{try{applyState(JSON.parse(e.data))}catch{}};
+}
+connect();
+</script>
+</body>
+</html>
