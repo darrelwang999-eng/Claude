@@ -12,6 +12,12 @@
       "sourceType": "github",
       "computedHash": "4d2287bc8e4702d994fbe5725bb12d0d63ba8877bdb4616c991ee1ae530806cb"
     },
+    "okx-ai": {
+      "source": "okx/onchainos-skills",
+      "sourceType": "github",
+      "skillPath": "skills/okx-ai/SKILL.md",
+      "computedHash": "9afdbb4c8f3c8856bf85d7d9626a72201008ef43206ae22c2b28f785e5ab5eb5"
+    },
     "okx-audit-log": {
       "source": "okx/onchainos-skills",
       "sourceType": "github",
